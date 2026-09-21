@@ -1,0 +1,93 @@
+{
+  "info": {
+    "name": "AppSec Regression - OWASP Juice Shop (API Controls V2)",
+    "_postman_id": "22222222-2222-2222-2222-222222222222",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Public - Product search (should be 200)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/rest/products/search?q=apple"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('JSON response', () => pm.response.to.be.json);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Protected - whoami without auth should be 401/403",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/rest/user/whoami"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 401 or 403', () => pm.expect([401,403]).to.include(pm.response.code));",
+              "pm.test('No stack trace leaked', () => {",
+              "  const body = (pm.response.text() || '').toLowerCase();",
+              "  pm.expect(body).to.not.include('traceback');",
+              "  pm.expect(body).to.not.include('exception');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Protected - whoami with USER token should be 200",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+        "url": "{{base_url}}/rest/user/whoami"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Challenges with USER token should be 401/403",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+        "url": "{{base_url}}/api/Challenges"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status is 401 or 403', () => pm.expect([401,403]).to.include(pm.response.code));"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Challenges with ADMIN token should be 200",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+        "url": "{{base_url}}/api/Challenges"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+        }
+      ]
+    }
+  ]
+}

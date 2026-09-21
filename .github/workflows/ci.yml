@@ -1,0 +1,158 @@
+name: Security Regression CI (Juice Shop) + Publish Reports
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+# Permissions minimales par défaut ; les droits Pages ne sont accordés
+# qu'aux jobs qui en ont besoin (principe du moindre privilège).
+permissions:
+  contents: read
+
+# Un run par branche/PR : un nouveau push annule le run précédent de la même
+# référence, mais une PR n'annule jamais un run (ni un déploiement) de main.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python deps
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Newman + HTML reporter
+        run: npm i -g newman newman-reporter-htmlextra
+
+      - name: Start OWASP Juice Shop (Docker)
+        run: |
+          docker run -d --name juice-shop -p 3000:3000 bkimminich/juice-shop
+          for _ in {1..40}; do
+            if curl -sSf http://localhost:3000 >/dev/null; then echo "Juice Shop is up"; break; fi
+            sleep 2
+          done
+
+      - name: Create env.json from example (CI-safe)
+        run: |
+          cp config/env.example.json config/env.json
+          python - <<'PY'
+          import json
+          p = "config/env.json"
+          d = json.load(open(p, "r", encoding="utf-8"))
+          d["base_url"] = "http://localhost:3000"
+          d["api"]["base_url"] = "http://localhost:3000"
+          json.dump(d, open(p, "w", encoding="utf-8"), indent=2)
+          PY
+
+      - name: Run Web + API tests (HTML + JUnit)
+        run: |
+          . .venv/bin/activate
+          chmod +x scripts/run_all.sh api/run_newman_v2.sh
+          ./scripts/run_all.sh
+
+      - name: Publish JUnit test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "reports/*junit.xml"
+          fail_on_failure: true
+
+      - name: Upload reports as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-regression-reports
+          path: reports/
+
+      - name: Stop Juice Shop
+        if: always()
+        run: docker rm -f juice-shop || true
+
+  publish-reports:
+    # Publie uniquement sur main (pas sur les PR)
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download reports artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security-regression-reports
+          path: ./public/reports
+
+      - name: Create index.html
+        run: |
+          cat > ./public/index.html <<'HTML'
+          <!doctype html>
+          <html lang="fr">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>AppSec Regression Reports</title>
+              <style>
+                body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:24px;line-height:1.5}
+                a{display:inline-block;margin:6px 0}
+                code{background:rgba(127,127,127,.15);padding:2px 6px;border-radius:8px}
+              </style>
+            </head>
+            <body>
+              <h1>Rapports — AppSec non-régression (Juice Shop)</h1>
+              <p>Derniers rapports publiés depuis <code>main</code>.</p>
+              <ul>
+                <li><a href="./reports/pytest-report.html">Pytest (Web) — rapport HTML</a></li>
+                <li><a href="./reports/newman-report.html">Newman (API) — rapport HTML</a></li>
+                <li><a href="./reports/SUMMARY.md">Résumé Markdown</a></li>
+              </ul>
+              <p>Artefacts XML (JUnit) disponibles dans le dossier <code>reports/</code>.</p>
+            </body>
+          </html>
+          HTML
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: publish-reports
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    # Un seul déploiement Pages à la fois, sans jamais en annuler un en cours.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

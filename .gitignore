@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.venv
+venv/
+.env
+
+# Config locale (contient les identifiants de test)
+config/env.json
+
+# Reports générés
+reports/*
+!reports/.gitkeep
+
+# Evidence générée (captures/écrans si ajoutées localement)
+evidence/*
+!evidence/.gitkeep
+
+# Node (Newman)
+node_modules/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
