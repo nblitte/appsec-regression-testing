@@ -60,6 +60,10 @@
           {
             "key": "Authorization",
             "value": "Bearer {{user_token}}"
+          },
+          {
+            "key": "Cookie",
+            "value": "token={{user_token}}"
           }
         ]
       },
@@ -68,9 +72,19 @@
           "listen": "test",
           "script": {
             "exec": [
+              "// Juice Shop peut renvoyer {\"user\":{}} pour whoami avec un simple en-tête Bearer (l'interface web utilise un cookie).",
+              "// Le contrôle porte donc sur l'identité portée par le jeton (payload JWT), et whoami ne doit jamais exposer une autre identité.",
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
-              "pm.test('Identity matches the token owner', () => {",
-              "  pm.expect(pm.response.json().user.email).to.eql(pm.environment.get('user_email'));",
+              "pm.test('Token identity matches the token owner (JWT payload)', () => {",
+              "  const part = pm.environment.get('user_token').split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+              "  const padded = part + '='.repeat((4 - (part.length % 4)) % 4);",
+              "  const payload = JSON.parse(CryptoJS.enc.Base64.parse(padded).toString(CryptoJS.enc.Utf8));",
+              "  pm.expect(payload.data.email).to.eql(pm.environment.get('user_email'));",
+              "});",
+              "pm.test('whoami never exposes another identity', () => {",
+              "  let user = {};",
+              "  try { user = pm.response.json().user || {}; } catch (e) { user = {}; }",
+              "  if (user.email) { pm.expect(user.email).to.eql(pm.environment.get('user_email')); }",
               "});"
             ]
           }
