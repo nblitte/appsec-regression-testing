@@ -7,6 +7,8 @@ from jsonschema import validate
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
+from api.juice_api import ensure_user
+
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = ROOT / "config"
 
@@ -31,6 +33,14 @@ def env():
 @pytest.fixture(scope="session")
 def base_url(env):
     return env["base_url"].rstrip("/")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def standard_user(env):
+    """Crée le compte « standard » de test (idempotent) avant les tests Web."""
+    user = env["test_users"]["standard"]
+    ensure_user(env["api"]["base_url"], user["username"], user["password"])
+    return user
 
 
 @pytest.fixture

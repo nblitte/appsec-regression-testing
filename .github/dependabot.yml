@@ -1,14 +1,19 @@
 version: 2
 updates:
-  # Dépendances Python (requirements.txt)
+  # Dépendances Python (requirements.txt) : une seule PR groupée par semaine
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    groups:
+      python-deps:
+        patterns: ["*"]
 
-  # Actions GitHub utilisées par les workflows
+  # Actions GitHub utilisées par les workflows : une seule PR groupée par semaine
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns: ["*"]

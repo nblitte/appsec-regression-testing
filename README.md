@@ -8,14 +8,15 @@ Tests de **non-régression de sécurité applicative** contre [OWASP Juice Shop]
 
 | Couche | Contrôle | Fichier |
 |---|---|---|
-| Web | Une page protégée redirige vers le login si non authentifié | `web/tests/test_auth_redirect.py` |
+| Web | L'UI d'administration n'est pas accessible sans authentification (redirection login ou page 403) | `web/tests/test_auth_redirect.py` |
 | Web | Un utilisateur standard n'accède pas à l'UI d'administration (RBAC) | `web/tests/test_role_based_access_ui.py` |
 | Web | Après déconnexion, la session n'ouvre plus les pages protégées | `web/tests/test_logout_invalidates_session.py` |
-| Web | Un login échoué ne divulgue pas de détails techniques (stack trace, SQL…) | `web/tests/test_error_messages_not_verbose.py` |
-| API | Endpoint public accessible, endpoint protégé refusé sans token | `api/postman_collection.json` |
-| API | RBAC : token « user » refusé (403) et token « admin » accepté (200) sur un endpoint admin | `api/postman_collection.json` |
+| Web | Un login échoué affiche un message d'erreur sans détail technique (stack trace, SQL…) | `web/tests/test_error_messages_not_verbose.py` |
+| API | Endpoint public accessible ; `whoami` anonyme n'expose aucune identité ; `whoami` avec token renvoie bien le propriétaire | `api/postman_collection.json` |
+| API | `/api/Users` refusé sans token, accepté avec un token valide | `api/postman_collection.json` |
+| API | RBAC : `/rest/order-history/orders` (réservé au rôle *accounting*) refusé sans token et avec un token « utilisateur », accepté avec le compte comptable | `api/postman_collection.json` |
 
-Les tokens sont récupérés dynamiquement par `api/get_tokens.py` (login réel), puis injectés dans l'environnement Postman.
+Le compte « standard » de test est créé automatiquement (inscription libre de Juice Shop, idempotente) : aucune dépendance à un compte de démo dont les identifiants changent selon les versions. Les tokens sont récupérés par `api/get_tokens.py` puis injectés dans l'environnement Postman.
 
 ## Architecture
 
@@ -59,10 +60,10 @@ Variable optionnelle : `CHROME_BIN=/chemin/vers/chrome` pour utiliser un binaire
 
 ## Validation de ce projet
 
-- Lint : `actionlint` (workflows) et `shellcheck` (scripts) sans avertissement.
-- Suite API : validée contre un faux serveur imitant les endpoints Juice Shop, y compris un scénario de **régression volontaire** du RBAC qui fait bien échouer la collection.
-- Suite Web : validée contre une petite SPA factice reproduisant les sélecteurs de Juice Shop ; 4 tests passent, et une régression RBAC volontairement introduite fait échouer le test attendu.
-- Point d'attention : les sélecteurs Web peuvent varier selon la version de Juice Shop (les tests essaient plusieurs candidats). Si un sélecteur ne correspond plus, l'échec l'indique explicitement (`Update selectors`).
+- Lint : `actionlint` (workflows), `shellcheck` (scripts) et `pyflakes` sans avertissement.
+- Un premier run de CI contre le vrai Juice Shop a révélé des hypothèses fausses dans la première version (comptes de démo, `whoami` anonyme qui répond 200, `/api/Challenges` public, sélecteurs et fenêtres de bienvenue). Les tests ont été corrigés à partir du comportement documenté de Juice Shop (routes protégées de `server.ts`, comptes de `users.yml`).
+- Les suites Web et API sont validées contre un faux serveur reproduisant ce comportement, y compris une **régression RBAC volontaire** qui fait bien échouer la collection Newman.
+- Les sélecteurs Web peuvent varier selon la version de Juice Shop (plusieurs candidats sont essayés). En cas d'échec, le message indique le sélecteur à mettre à jour.
 
 ## Cadre d'utilisation
 

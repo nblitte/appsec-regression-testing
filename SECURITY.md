@@ -11,6 +11,6 @@ Ce dépôt est un projet de portfolio (tests de non-régression de sécurité ap
 ## Portée
 
 - La cible des tests est **OWASP Juice Shop**, une application volontairement vulnérable, lancée **en local ou en CI éphémère uniquement**. Les vulnérabilités de Juice Shop ne sont pas dans la portée de ce dépôt.
-- Les identifiants présents dans `config/env.example.json` sont les comptes de démonstration publics de Juice Shop. `config/env.json` (identifiants réels éventuels) n'est jamais versionné.
+- Les identifiants présents dans `config/env.example.json` sont ceux d'un compte de test créé à la volée et du compte de démonstration public « accounting » de Juice Shop. `config/env.json` (identifiants réels éventuels) n'est jamais versionné.
 - Ces tests ne doivent être exécutés que contre des applications dont tu es propriétaire ou pour lesquelles tu disposes d'une autorisation écrite.
 - Aucune fonctionnalité offensive n'est fournie : les tests **vérifient** des contrôles (authentification, RBAC, non-verbosité des erreurs), ils n'exploitent rien.

@@ -24,7 +24,7 @@
       ]
     },
     {
-      "name": "Protected - whoami without auth should be 401/403",
+      "name": "Identity - whoami without auth exposes no identity",
       "request": {
         "method": "GET",
         "url": "{{base_url}}/rest/user/whoami"
@@ -34,7 +34,13 @@
           "listen": "test",
           "script": {
             "exec": [
-              "pm.test('Status is 401 or 403', () => pm.expect([401,403]).to.include(pm.response.code));",
+              "// Juice Shop répond 200 avec un objet user vide quand on n'est pas authentifié.",
+              "pm.test('Status 200, 401 or 403', () => pm.expect([200,401,403]).to.include(pm.response.code));",
+              "pm.test('No identity exposed', () => {",
+              "  let user = {};",
+              "  try { user = pm.response.json().user || {}; } catch (e) { user = {}; }",
+              "  pm.expect(user).to.not.have.property('email');",
+              "});",
               "pm.test('No stack trace leaked', () => {",
               "  const body = (pm.response.text() || '').toLowerCase();",
               "  pm.expect(body).to.not.include('traceback');",
@@ -46,46 +52,132 @@
       ]
     },
     {
-      "name": "Protected - whoami with USER token should be 200",
+      "name": "Identity - whoami with USER token returns the user",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
-        "url": "{{base_url}}/rest/user/whoami"
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
-        }
-      ]
-    },
-    {
-      "name": "Admin - Challenges with USER token should be 401/403",
-      "request": {
-        "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
-        "url": "{{base_url}}/api/Challenges"
+        "url": "{{base_url}}/rest/user/whoami",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user_token}}"
+          }
+        ]
       },
       "event": [
         {
           "listen": "test",
           "script": {
-            "exec": ["pm.test('Status is 401 or 403', () => pm.expect([401,403]).to.include(pm.response.code));"]
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Identity matches the token owner', () => {",
+              "  pm.expect(pm.response.json().user.email).to.eql(pm.environment.get('user_email'));",
+              "});"
+            ]
           }
         }
       ]
     },
     {
-      "name": "Admin - Challenges with ADMIN token should be 200",
+      "name": "AuthN - /api/Users without token is denied",
       "request": {
         "method": "GET",
-        "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
-        "url": "{{base_url}}/api/Challenges"
+        "url": "{{base_url}}/api/Users"
       },
       "event": [
         {
           "listen": "test",
-          "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+          "script": {
+            "exec": [
+              "pm.test('Denied (401 or 403)', () => pm.expect([401,403]).to.include(pm.response.code));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AuthN - /api/Users with USER token is allowed",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/Users",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user_token}}"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "RBAC - accounting-only endpoint without token is denied",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/rest/order-history/orders"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Denied (401 or 403)', () => pm.expect([401,403]).to.include(pm.response.code));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "RBAC - accounting-only endpoint with USER token is denied",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/rest/order-history/orders",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user_token}}"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Denied (401 or 403)', () => pm.expect([401,403]).to.include(pm.response.code));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "RBAC - accounting-only endpoint with ACCOUNTING token is allowed",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/rest/order-history/orders",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accounting_token}}"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('JSON response', () => pm.response.to.be.json);"
+            ]
+          }
         }
       ]
     }

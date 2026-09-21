@@ -20,6 +20,9 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write # nécessaire à action-junit-report pour créer le check « Tests »
 
     steps:
       - name: Checkout
@@ -72,7 +75,9 @@ jobs:
           ./scripts/run_all.sh
 
       - name: Publish JUnit test results
-        if: always()
+        # Les PR de Dependabot ont un token en lecture seule : on saute cette
+        # étape pour elles (les rapports restent disponibles dans l'artefact).
+        if: always() && github.actor != 'dependabot[bot]'
         uses: mikepenz/action-junit-report@v5
         with:
           report_paths: "reports/*junit.xml"
