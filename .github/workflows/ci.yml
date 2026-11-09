@@ -26,15 +26,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
 
@@ -78,14 +78,14 @@ jobs:
         # Les PR de Dependabot ont un token en lecture seule : on saute cette
         # étape pour elles (les rapports restent disponibles dans l'artefact).
         if: always() && github.actor != 'dependabot[bot]'
-        uses: mikepenz/action-junit-report@v5
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: "reports/*junit.xml"
           fail_on_failure: true
 
       - name: Upload reports as artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-regression-reports
           path: reports/
@@ -104,7 +104,7 @@ jobs:
 
     steps:
       - name: Download reports artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: security-regression-reports
           path: ./public/reports
@@ -138,7 +138,7 @@ jobs:
           HTML
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./public
 
@@ -160,4 +160,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
